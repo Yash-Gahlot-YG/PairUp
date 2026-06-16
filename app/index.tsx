@@ -12,6 +12,9 @@ import MessageScreen from "@/src/screens/MessageScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { View, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Setting from "@/src/screens/ProfileScr";
+import ProfileScr from "@/src/screens/ProfileScr";
+import { Profile } from "@/src/screens/Home";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -22,6 +25,10 @@ export type RootStackParamList = {
     loggedInProfile: Profile;
     userSwiped: Profile;
   };
+  Message: {
+    matchDetails: any;
+  };
+  ProfileScr: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -32,6 +39,8 @@ function InsideLayout() {
     <InsideStack.Navigator screenOptions={{ headerShown: false }}>
       <InsideStack.Screen name="Home" component={Home} />
       <InsideStack.Screen name="Matched" component={MatchedScreen} />
+      {/* <InsideStack.Screen name="Setting" component={Setting} />{" "} */}
+      {/* Add Setting here */}
     </InsideStack.Navigator>
   );
 }
@@ -91,11 +100,62 @@ export default function App() {
       <NavigationContainer independent={true}>
         <Stack.Navigator initialRouteName={user ? "Inside" : "Login"}>
           {user ? (
-            <Stack.Screen
-              name="Inside"
-              component={InsideLayout}
-              options={{ headerShown: false }}
-            />
+            <>
+              <Stack.Screen
+                name="Inside"
+                component={InsideLayout}
+                options={{ headerShown: false }}
+              />
+              <Stack.Group>
+                <Stack.Screen
+                  name="Chat"
+                  component={Chat}
+                  options={{ headerShown: false }}
+                />
+              </Stack.Group>
+              <Stack.Group
+                screenOptions={{
+                  presentation: "modal",
+                  animation: "slide_from_right",
+                }}
+              >
+                <Stack.Screen
+                  name="Modal"
+                  component={ModalScreen}
+                  options={{ headerShown: false }}
+                />
+              </Stack.Group>
+              <Stack.Group
+                screenOptions={{
+                  presentation: "transparentModal",
+                }}
+              >
+                <Stack.Screen
+                  name="Matched"
+                  component={MatchedScreen}
+                  options={{ headerShown: false }}
+                />
+              </Stack.Group>
+              <Stack.Group>
+                <Stack.Screen
+                  name="Message"
+                  component={MessageScreen}
+                  options={{ headerShown: false }}
+                />
+              </Stack.Group>
+              <Stack.Group
+                screenOptions={{
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
+                }}
+              >
+                <Stack.Screen
+                  name="ProfileScr"
+                  component={ProfileScr}
+                  options={{ headerShown: false }}
+                />
+              </Stack.Group>
+            </>
           ) : (
             <Stack.Screen
               name="Login"
@@ -103,43 +163,6 @@ export default function App() {
               options={{ headerShown: false }}
             />
           )}
-          <Stack.Group>
-            <Stack.Screen
-              name="Chat"
-              component={Chat}
-              options={{ headerShown: false }}
-            />
-          </Stack.Group>
-          <Stack.Group
-            screenOptions={{
-              presentation: "modal",
-              animation: "slide_from_bottom",
-            }}
-          >
-            <Stack.Screen
-              name="Modal"
-              component={ModalScreen}
-              options={{ headerShown: false }}
-            />
-          </Stack.Group>
-          <Stack.Group
-            screenOptions={{
-              presentation: "transparentModal",
-            }}
-          >
-            <Stack.Screen
-              name="Matched"
-              component={MatchedScreen}
-              options={{ headerShown: false }}
-            />
-          </Stack.Group>
-          <Stack.Group>
-            <Stack.Screen
-              name="Message"
-              component={MessageScreen}
-              options={{ headerShown: false }}
-            />
-          </Stack.Group>
         </Stack.Navigator>
       </NavigationContainer>
     </GestureHandlerRootView>

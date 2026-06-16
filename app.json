@@ -21,7 +21,9 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.yash_gahlot.ProxiMate",
-      "permissions": ["android.permission.RECORD_AUDIO"]
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -45,9 +47,10 @@
         "origin": false
       },
       "eas": {
-        "projectId": "ffe30105-5eb4-445b-a791-a36479edbd6b"
+        "projectId": "34886b6d-2702-46cd-9cb1-158351327a5b"
       }
     },
-    "owner": "yashgahlot_45"
+    "owner": "yashh-gahlot"
   }
 }
+//yash..

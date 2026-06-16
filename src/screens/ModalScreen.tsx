@@ -7,26 +7,33 @@ import {
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
+  ScrollView,
   Alert,
   StatusBar,
+  Platform,
+  ActivityIndicator,
 } from "react-native";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { FIREBASE_DB, FIREBASE_AUTH, FIREBASE_STORAGE } from "@/FirebaseConfig";
-import { useNavigation } from "@react-navigation/native";
+import { FIREBASE_DB, FIREBASE_AUTH } from "@/FirebaseConfig";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { RootStackParamList } from "@/app/index";
+
+// ✅ Free image hosting — get your key at https://imgbb.com/api (takes 30 sec)
+const IMGBB_API_KEY = "2263e37d5bbb21e89e5516cb101c8ca9";
 
 const ModalScreen = () => {
   const user = FIREBASE_AUTH.currentUser;
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [image, setImage] = useState<string | null>(null);
-  const [job, setJob] = useState<string | null>(null);
-  const [age, setAge] = useState<string | null>(null);
+  const [job, setJob] = useState<string>("");
+  const [age, setAge] = useState<string>("");
   const [uploading, setUploading] = useState(false);
-  const [fullName, setFullName] = useState<string | null>(null);
+  const [fullName, setFullName] = useState<string>("");
+  const [gender, setGender] = useState<"male" | "female" | null>(null);
 
-  const incompleteForm = !job || !age || !fullName;
+  const incompleteForm = !job || !age || !fullName || !image || !gender;
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -42,6 +49,10 @@ const ModalScreen = () => {
   };
 
   const updateUserProfile = () => {
+    if (!user) {
+      alert("Error: User is not authenticated.");
+      return;
+    }
     if (image) {
       uploadMedia(image)
         .then((downloadURL) => {
@@ -51,16 +62,17 @@ const ModalScreen = () => {
             photoURL: downloadURL,
             job: job,
             age: age,
+            gender: gender,
             timestamp: serverTimestamp(),
           })
             .then(() => {
-              navigation.navigate("Home");
+              navigation.navigate("Home" as any);
             })
-            .catch((error) => {
+            .catch((error: any) => {
               alert(error.message);
             });
         })
-        .catch((error) => {
+        .catch((error: any) => {
           alert(error.message);
         });
     } else {
@@ -68,114 +80,157 @@ const ModalScreen = () => {
     }
   };
 
-  const uploadMedia = async (uri: string) => {
+  const uploadMedia = async (uri: string): Promise<string> => {
     setUploading(true);
     try {
-      const blob = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.onload = () => {
-          resolve(xhr.response);
-        };
-        xhr.onerror = () => {
-          reject(new TypeError("Network request failed"));
-        };
-        xhr.responseType = "blob";
-        xhr.open("GET", uri, true);
-        xhr.send(null);
+      // Read image as base64
+      const base64 = await FileSystem.readAsStringAsync(uri, {
+        encoding: FileSystem.EncodingType.Base64,
       });
 
-      const filename = uri.substring(uri.lastIndexOf("/") + 1);
-      const storageRef = ref(FIREBASE_STORAGE, `images/${filename}`);
-      const uploadTask = uploadBytesResumable(storageRef, blob as Blob);
-      return new Promise<string>((resolve, reject) => {
-        uploadTask.on(
-          "state_changed",
-          null,
-          (error) => {
-            setUploading(false);
-            reject(error);
-          },
-          () => {
-            getDownloadURL(uploadTask.snapshot.ref).then((downloadURL) => {
-              setUploading(false);
-              Alert.alert("Photo Uploaded!!!");
-              setImage(null);
-              resolve(downloadURL);
-            });
-          }
-        );
+      // Upload to ImgBB (free, no Firebase Storage needed)
+      const formData = new FormData();
+      formData.append("key", IMGBB_API_KEY);
+      formData.append("image", base64);
+
+      const response = await fetch("https://api.imgbb.com/1/upload", {
+        method: "POST",
+        body: formData,
       });
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error?.message || "Image upload failed");
+      }
+
+      return data.data.url as string;
     } catch (error) {
-      setUploading(false);
       throw error;
+    } finally {
+      setUploading(false);
     }
   };
-
+  const handleSignOut = async () => {
+    try {
+      await FIREBASE_AUTH.signOut();
+    } catch (error) {
+      const err = error as any;
+      Alert.alert("Error", err.message || "Failed to sign out.");
+    }
+  };
   const emailUsername = user?.email ? user.email.split("@")[0] : "User";
   return (
-    <KeyboardAvoidingView style={styles.container} behavior="padding">
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+    >
       <StatusBar backgroundColor="rgb(240, 240, 240)" barStyle="dark-content" />
-      <Image
-        style={styles.logoImage}
-        source={require("@/assets/PairUp/dating-4.1.png")}
-      />
-      <Text style={{ fontSize: 25, padding: 10, color: "#e33460" }}>
-        W E L C O M E
-      </Text>
-      <Text
-        style={{
-          fontSize: 20,
-          paddingBottom: 15,
-          fontWeight: "500",
-        }}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {`${emailUsername}`}
-      </Text>
-
-      <Text style={styles.stepText}>Step 1: Full Name</Text>
-      <TextInput
-        value={fullName}
-        onChangeText={setFullName}
-        style={styles.textInput}
-        placeholder="Enter your full name"
-      />
-
-      <Text style={styles.stepText}>Step 2: The Profile Pic</Text>
-      <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
-        <Text style={styles.imagePickerButtonText}>
-          Pick an image from camera roll
+        <Image
+          style={styles.logoImage}
+          source={require("@/assets/PairUp/dating-4.1.png")}
+        />
+        <Text style={{ fontSize: 25, padding: 10, color: "#e33460" }}>
+          W E L C O M E
         </Text>
-      </TouchableOpacity>
-      {image && <Image source={{ uri: image }} style={styles.selectedImage} />}
+        <Text
+          style={{
+            fontSize: 20,
+            paddingBottom: 15,
+            fontWeight: "500",
+          }}
+        >
+          {`${emailUsername}`}
+        </Text>
 
-      <Text style={styles.stepText}>Step 3: The Job</Text>
-      <TextInput
-        value={job}
-        onChangeText={setJob}
-        style={styles.textInput}
-        placeholder="Enter your occupation"
-      />
+        <Text style={styles.stepText}>Step 1: Full Name</Text>
+        <TextInput
+          value={fullName}
+          onChangeText={setFullName}
+          style={styles.textInput}
+          placeholder="Enter your full name"
+        />
 
-      <Text style={styles.stepText}>Step 4: The Age</Text>
-      <TextInput
-        value={age}
-        onChangeText={setAge}
-        style={styles.textInput}
-        placeholder="Enter your age"
-        keyboardType="numeric"
-        maxLength={2}
-      />
+        <Text style={styles.stepText}>Step 2: The Profile Pic</Text>
+        <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+          <Text style={styles.imagePickerButtonText}>
+            Pick an image from camera roll
+          </Text>
+        </TouchableOpacity>
+        {image && <Image source={{ uri: image }} style={styles.selectedImage} />}
 
-      <TouchableOpacity
-        disabled={incompleteForm}
-        style={[
-          styles.button,
-          { backgroundColor: incompleteForm ? "grey" : "#e33460" },
-        ]}
-        onPress={updateUserProfile}
-      >
-        <Text style={styles.buttonText}>Update Profile</Text>
-      </TouchableOpacity>
+        <Text style={styles.stepText}>Step 3: The Job</Text>
+        <TextInput
+          value={job}
+          onChangeText={setJob}
+          style={styles.textInput}
+          placeholder="Enter your occupation"
+        />
+
+        <Text style={styles.stepText}>Step 4: The Age</Text>
+        <TextInput
+          value={age}
+          onChangeText={setAge}
+          style={styles.textInput}
+          placeholder="Enter your age"
+          keyboardType="numeric"
+          maxLength={2}
+        />
+
+        <Text style={styles.stepText}>Step 5: Your Gender</Text>
+        <View style={styles.genderRow}>
+          <TouchableOpacity
+            style={[
+              styles.genderButton,
+              gender === "male" && styles.genderButtonSelected,
+            ]}
+            onPress={() => setGender("male")}
+            activeOpacity={0.8}
+          >
+            <Text style={[
+              styles.genderButtonText,
+              gender === "male" && styles.genderButtonTextSelected,
+            ]}>♂  Male</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.genderButton,
+              gender === "female" && styles.genderButtonSelected,
+            ]}
+            onPress={() => setGender("female")}
+            activeOpacity={0.8}
+          >
+            <Text style={[
+              styles.genderButtonText,
+              gender === "female" && styles.genderButtonTextSelected,
+            ]}>♀  Female</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          disabled={incompleteForm || uploading}
+          style={[
+            styles.button,
+            incompleteForm && !uploading ? styles.buttonDisabled : styles.buttonActive,
+          ]}
+          onPress={updateUserProfile}
+          activeOpacity={0.85}
+        >
+          {uploading ? (
+            <View style={styles.buttonContent}>
+              <ActivityIndicator color="white" size="small" />
+              <Text style={[styles.buttonText, { marginLeft: 8 }]}>Uploading...</Text>
+            </View>
+          ) : (
+            <Text style={styles.buttonText}>Update Profile</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -183,8 +238,11 @@ const ModalScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "rgb(240, 240, 240)",
+  },
+  scrollContent: {
     alignItems: "center",
-    top: -40,
+    paddingBottom: 40,
   },
   logoImage: {
     height: 100,
@@ -200,12 +258,26 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   button: {
-    padding: 14,
-    width: 180,
-    height: 50,
-    borderRadius: 10,
+    width: 220,
+    height: 52,
+    borderRadius: 26,
     marginTop: 30,
     justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  buttonActive: {
+    backgroundColor: "#e33460",
+  },
+  buttonDisabled: {
+    backgroundColor: "#c0c0c0",
+  },
+  buttonContent: {
+    flexDirection: "row",
     alignItems: "center",
   },
   buttonText: {
@@ -232,6 +304,32 @@ const styles = StyleSheet.create({
   imagePickerButtonText: {
     color: "white",
     fontSize: 16,
+  },
+  genderRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  genderButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: "#e33460",
+    alignItems: "center",
+    backgroundColor: "transparent",
+  },
+  genderButtonSelected: {
+    backgroundColor: "#e33460",
+  },
+  genderButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#e33460",
+  },
+  genderButtonTextSelected: {
+    color: "white",
   },
 });
 

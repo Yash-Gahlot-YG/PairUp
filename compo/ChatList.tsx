@@ -6,7 +6,7 @@ import ChatRow from "@/compo/ChatRow "; // Remove the trailing space
 
 const ChatList = () => {
   const user = FIREBASE_AUTH.currentUser;
-  const [matches, setMatches] = useState([]);
+  const [matches, setMatches] = useState<any[]>([]);
 
   useEffect(() => {
     if (user) {

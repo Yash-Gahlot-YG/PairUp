@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, Image } from "react-native";
 import React from "react";
 
-const ReceiverMessage = ({ message }) => {
+const ReceiverMessage = ({ message }: { message: any }) => {
   return (
     <View style={styles.receiverMessage}>
       <Image style={styles.image} source={{ uri: message.photoURL }} />

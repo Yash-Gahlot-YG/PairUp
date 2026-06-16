@@ -36,36 +36,47 @@ import generateId from "@/lib/generateld";
 
 const { width, height } = Dimensions.get("window");
 
-type Profile = {
+export type Profile = {
   [x: string]: ReactNode;
   id: string;
   fullName: string;
   occupation: string;
   photoURL: string;
   age: number;
+  gender: string;
 };
 
 type HomeProps = NativeStackScreenProps<any, any>;
 
 const Home = ({ navigation }: HomeProps) => {
-  const swiperRef = useRef(null);
+  const swiperRef = useRef<any>(null);
   const [profile, setProfile] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [userProfileImage, setUserProfileImage] = useState<string | null>(null);
+  const [currentUserGender, setCurrentUserGender] = useState<string | null>(null);
 
   const user = FIREBASE_AUTH.currentUser;
 
   useLayoutEffect(() => {
+    if (!user?.uid) return;
     const unsubscribe = onSnapshot(
-      doc(FIREBASE_DB, "users", user?.uid || ""),
+      doc(FIREBASE_DB, "users", user.uid),
       (snapshot) => {
         if (!snapshot.exists()) {
           navigation.navigate("Modal");
         } else {
           const userData = snapshot.data();
-          if (userData && userData.photoURL) {
+          if (userData?.photoURL) {
             setUserProfileImage(userData.photoURL);
           }
+          if (userData?.gender) {
+            setCurrentUserGender(userData.gender);
+          }
+        }
+      },
+      (error) => {
+        if (error.code !== "permission-denied") {
+          console.error("Error fetching user document:", error);
         }
       }
     );
@@ -73,9 +84,16 @@ const Home = ({ navigation }: HomeProps) => {
   }, [navigation, user?.uid]);
 
   useEffect(() => {
+    if (!user?.uid || !currentUserGender) return; // wait until we know the user's gender and UID
+
+    let isMounted = true;
+    let unsub: (() => void) | null = null;
+
     const fetchCards = async () => {
       setLoading(true);
       try {
+        const oppositeGender = currentUserGender === "male" ? "female" : "male";
+
         const passes = await getDocs(
           collection(FIREBASE_DB, "users", user.uid, "passes")
         ).then((snapshot) => snapshot.docs.map((doc) => doc.id));
@@ -84,13 +102,13 @@ const Home = ({ navigation }: HomeProps) => {
           collection(FIREBASE_DB, "users", user.uid, "swipes")
         ).then((snapshot) => snapshot.docs.map((doc) => doc.id));
 
-        const passedUserIds = passes.length > 0 ? passes : ["test"];
-        const swipedUserIds = swipes.length > 0 ? swipes : ["test"];
+        if (!isMounted) return;
 
-        const unsub = onSnapshot(
+        // Query only by gender — exclusions handled client-side to avoid composite index
+        unsub = onSnapshot(
           query(
             collection(FIREBASE_DB, "users"),
-            where("id", "not-in", [...passedUserIds, ...swipedUserIds])
+            where("gender", "==", oppositeGender)
           ),
           (snapshot) => {
             const allProfiles = snapshot.docs.map((doc) => ({
@@ -98,26 +116,45 @@ const Home = ({ navigation }: HomeProps) => {
               ...doc.data(),
             })) as Profile[];
 
+            // Filter out current user + already passed/swiped profiles
             const filteredProfiles = allProfiles.filter(
-              (profile) => profile.id !== user?.uid
+              (p) =>
+                p.id !== user?.uid &&
+                !passes.includes(p.id) &&
+                !swipes.includes(p.id)
             );
 
-            setProfile(filteredProfiles);
-            setLoading(false);
+            if (isMounted) {
+              setProfile(filteredProfiles);
+              setLoading(false);
+            }
+          },
+          (error) => {
+            if (error.code !== "permission-denied") {
+              console.error("Error in users subscription:", error);
+            }
           }
         );
-        return () => unsub();
       } catch (error) {
         console.error("Error fetching cards: ", error);
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchCards();
-  }, [user?.uid]);
+
+    return () => {
+      isMounted = false;
+      if (unsub) {
+        unsub();
+      }
+    };
+  }, [user?.uid, currentUserGender]);
 
   const swipeLeft = async (cardIndex: number) => {
-    if (!profile[cardIndex]) return;
+    if (!user || !profile[cardIndex]) return;
 
     const userSwiped = profile[cardIndex];
     console.log(`You swiped PASS on ${userSwiped.displayName}`);
@@ -133,7 +170,7 @@ const Home = ({ navigation }: HomeProps) => {
   };
 
   const swipeRight = async (cardIndex: number) => {
-    if (!profile[cardIndex]) return;
+    if (!user || !profile[cardIndex]) return;
 
     const userSwiped = profile[cardIndex];
     try {
@@ -191,18 +228,18 @@ const Home = ({ navigation }: HomeProps) => {
         <StatusBar barStyle="dark-content" />
         <TouchableOpacity
           style={styles.logoContainer}
-          onPress={() => navigation.navigate("Modal")}
+          onPress={() => navigation.navigate("ProfileScr")}
         >
           <Image
             style={styles.imageProfile}
             source={
               userProfileImage
                 ? { uri: userProfileImage }
-                : require("@/assets/PairUp/avtar.jpg")
+                : require("@/assets/PairUp/user-profile.jpg")
             }
           />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => FIREBASE_AUTH.signOut()}>
+        <TouchableOpacity>
           <Image
             style={styles.logoImage}
             source={require("@/assets/PairUp/dating-0.6.png")}
@@ -279,6 +316,7 @@ const Home = ({ navigation }: HomeProps) => {
                   <Image
                     source={{ uri: card.photoURL }}
                     style={styles.cardImage}
+                    resizeMode="cover"
                   />
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardText}>
@@ -308,13 +346,13 @@ const Home = ({ navigation }: HomeProps) => {
       <View style={styles.heartCorss}>
         <TouchableOpacity
           style={styles.crossicon}
-          onPress={() => swiperRef.current.swipeLeft()}
+          onPress={() => swiperRef.current?.swipeLeft()}
         >
           <AntDesign name="close" size={24} color={"red"} />
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.hearticon}
-          onPress={() => swiperRef.current.swipeRight()}
+          onPress={() => swiperRef.current?.swipeRight()}
         >
           <AntDesign name="heart" size={24} color={"green"} />
         </TouchableOpacity>
@@ -337,8 +375,8 @@ const styles = StyleSheet.create({
   },
   logoContainer: { flexDirection: "row", alignItems: "center" },
   imageProfile: {
-    height: 60,
-    width: 60,
+    height: 50,
+    width: 50,
     borderRadius: 30,
     borderWidth: 2,
     borderColor: "#e33460",

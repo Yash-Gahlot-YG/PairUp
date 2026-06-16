@@ -12,7 +12,8 @@ import {
   SafeAreaView,
   StatusBar,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@/app/index";
 import { FIREBASE_AUTH } from "@/FirebaseConfig";
@@ -20,7 +21,6 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from "firebase/auth";
-// import { StatusBar } from "expo-status-bar";
 
 type LoginProps = NativeStackScreenProps<RootStackParamList, "Login">;
 
@@ -34,12 +34,12 @@ const Login = ({ navigation }: LoginProps) => {
     setLoading(true);
     try {
       const response = await signInWithEmailAndPassword(auth, email, password);
-      console.log(response);
+      console.log("Sign in successful:", response.user.uid);
     } catch (error: any) {
       console.log("Full Error Object:", error);
 
       if (error.code === "auth/wrong-password") {
-        Alert.alert("Error", "Enter Wrong Password. Please try again.");
+        Alert.alert("Error", "Incorrect password. Please try again.");
       } else if (error.code === "auth/user-not-found") {
         Alert.alert("Error", "No user found with this email.");
       } else {
@@ -58,7 +58,7 @@ const Login = ({ navigation }: LoginProps) => {
         email,
         password
       );
-      console.log(response);
+      console.log("Sign up successful:", response.user.uid);
     } catch (error: any) {
       console.log("Full Error Object:", error);
 
@@ -73,13 +73,9 @@ const Login = ({ navigation }: LoginProps) => {
       setLoading(false);
     }
   };
-
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      {/* Set StatusBar to transparent */}
       <StatusBar backgroundColor="#e33460" barStyle={"light-content"} />
-
-      {/* ImageBackground will now be behind the StatusBar */}
       <ImageBackground
         source={require("@/assets/PairUp/login1.jpeg")}
         resizeMode="cover"
@@ -187,7 +183,7 @@ const styles = StyleSheet.create({
   },
   sloganContainer: {
     alignItems: "center",
-    top: 190, // Adjusted top value for better layout on different screens
+    top: 150, // Adjusted top value for better layout on different screens
   },
   sloganText1: {
     fontStyle: "italic",

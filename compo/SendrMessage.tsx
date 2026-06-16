@@ -1,7 +1,7 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-const SendrMessage = ({ message }) => {
+const SendrMessage = ({ message }: { message: any }) => {
   return (
     <View style={styles.sendrMessage}>
       <Text style={styles.messageText}>{message.message}</Text>

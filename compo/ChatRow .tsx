@@ -1,34 +1,16 @@
 import { StyleSheet, Text, TouchableOpacity, View, Image } from "react-native";
 import React, { ReactNode, useEffect, useState } from "react";
 import { FIREBASE_AUTH } from "@/FirebaseConfig";
-import { useNavigation } from "expo-router";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
 import getMatchedUserInfo from "@/lib/getMetchedUserInfo";
+import Feather from "@expo/vector-icons/Feather";
+import { Profile } from "@/src/screens/Home";
+import { RootStackParamList } from "@/app/index";
 
-// type MatchDetails = {
-//   users: {
-//     [key: string]: {
-//       displayName: string;
-//       photoURL: string;
-//     };
-//   };
-// };
-
-// type Profile = {
-//   id: string;
-//   fullName: string;
-//   occupation: string;
-//   photoURL: string;
-//   age: number;
-// };
-
-// type ChatRowProps = {
-//   matchDetails: MatchDetails;
-// };
-
-const ChatRow = ({ matchDetails }) => {
+const ChatRow = ({ matchDetails }: { matchDetails: any }) => {
   const user = FIREBASE_AUTH.currentUser;
-  const navigation = useNavigation();
-  const [matchedUserInfo, setMatchedUserInfo] = useState<Profile | null>(null);
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const [matchedUserInfo, setMatchedUserInfo] = useState<any>(null);
 
   useEffect(() => {
     if (matchDetails?.users && user?.uid) {
@@ -57,10 +39,11 @@ const ChatRow = ({ matchDetails }) => {
           uri: matchedUserInfo?.photoURL || "https://via.placeholder.com/70",
         }}
       />
-      <View>
+      <View style={styles.textAndIconContainer}>
         <Text style={styles.userName}>
           {matchedUserInfo?.displayName || "User"}
         </Text>
+        <Feather name="camera" size={24} color="black" />
       </View>
     </TouchableOpacity>
   );
@@ -82,6 +65,13 @@ const styles = StyleSheet.create({
     width: 60,
     borderRadius: 35,
     margin: 4,
+  },
+  textAndIconContainer: {
+    flex: 1, // Take up remaining space
+    flexDirection: "row",
+    justifyContent: "space-between", // Space out Text and Icon
+    alignItems: "center", // Align vertically
+    marginLeft: 10,
   },
   userName: {
     fontSize: 16,

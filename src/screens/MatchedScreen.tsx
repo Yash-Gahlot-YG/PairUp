@@ -1,11 +1,12 @@
 import { View, Text, StyleSheet, Image, TouchableOpacity } from "react-native";
 import React from "react";
-import { useNavigation, useRoute } from "@react-navigation/native";
+import { useNavigation, useRoute, NavigationProp } from "@react-navigation/native";
+import { RootStackParamList } from "@/app/index";
 
 const MatchedScreen = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const { params } = useRoute();
-  const { loggedInProfile, userSwiped } = params;
+  const { loggedInProfile, userSwiped } = params as any;
   return (
     <View style={styles.container}>
       <View style={styles.matchImage}>
@@ -23,11 +24,19 @@ const MatchedScreen = () => {
       <View style={styles.profileImage}>
         <Image
           style={{ height: 90, width: 90, borderRadius: 50 }}
-          source={{ uri: loggedInProfile.photoURL }}
+          source={
+            loggedInProfile?.photoURL
+              ? { uri: loggedInProfile.photoURL }
+              : require("@/assets/PairUp/avtar.jpg")
+          }
         />
         <Image
           style={{ height: 90, width: 90, borderRadius: 50 }}
-          source={{ uri: userSwiped.photoURL }}
+          source={
+            userSwiped?.photoURL
+              ? { uri: userSwiped.photoURL }
+              : require("@/assets/PairUp/avtar.jpg")
+          }
         />
       </View>
       <TouchableOpacity

@@ -30,34 +30,44 @@ import {
 const MessageScreen = () => {
   const user = FIREBASE_AUTH.currentUser;
   const { params } = useRoute();
+  const { matchDetails } = params as any;
   const [input, setInput] = useState("");
-  const { matchDetails } = params;
   const titleStyle = styles.displayName;
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!user) return;
     const messageQuery = query(
       collection(FIREBASE_DB, "matches", matchDetails.id, "messages"),
       orderBy("timestamp", "desc")
     );
 
-    const unsubscribe = onSnapshot(messageQuery, (snapshot) =>
-      setMessages(
-        snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-      )
+    const unsubscribe = onSnapshot(
+      messageQuery,
+      (snapshot) => {
+        setMessages(
+          snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }))
+        );
+      },
+      (error) => {
+        if (error.code !== "permission-denied") {
+          console.error("Error fetching messages:", error);
+        }
+      }
     );
 
     return unsubscribe;
-  }, [matchDetails]);
+  }, [matchDetails, user]);
 
   const sendMessage = () => {
+    if (!user) return;
     addDoc(collection(FIREBASE_DB, "matches", matchDetails.id, "messages"), {
       timestamp: serverTimestamp(),
       userId: user.uid,
-      displayName: user.displayName,
+      displayName: user.displayName || user.email?.split("@")[0] || "User",
       message: input,
     });
     setInput("");
@@ -66,7 +76,7 @@ const MessageScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <Header
-        title={getMatchedUserInfo(matchDetails.users, user.uid).displayName}
+        title={getMatchedUserInfo(matchDetails.users, user?.uid || "").displayName}
         callEnabled={true}
         titleStyle={titleStyle}
       />
@@ -80,7 +90,7 @@ const MessageScreen = () => {
             data={messages}
             keyExtractor={(item) => item.id}
             renderItem={({ item: message }) =>
-              message.userId === user.uid ? (
+              user && message.userId === user.uid ? (
                 <SendrMessage key={message.id} message={message} />
               ) : (
                 <ReceiverMessage key={message.id} message={message} />

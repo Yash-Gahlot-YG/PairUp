@@ -1,10 +1,16 @@
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, StyleProp, TextStyle } from "react-native";
 import React from "react";
 import { useNavigation } from "@react-navigation/native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Foundation } from "@expo/vector-icons";
 
-const Header = ({ title, callEnabled, titleStyle }) => {
+interface HeaderProps {
+  title: string;
+  callEnabled?: boolean;
+  titleStyle?: StyleProp<TextStyle>;
+}
+
+const Header = ({ title, callEnabled, titleStyle }: HeaderProps) => {
   const navigation = useNavigation();
   return (
     <View style={styles.headerContainer}>
